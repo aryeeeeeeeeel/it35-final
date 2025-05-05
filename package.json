@@ -3,7 +3,10 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "scripts": {
+  "homepage": "https://{username}.github.io/{repository-name}/",
+   "scripts": {
+   "predeploy" : "npm run build",
+   "deploy" : "gh-pages -d dist",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
@@ -21,6 +24,7 @@
     "@ionic/react-router": "^8.5.0",
     "@types/react-router": "^5.1.20",
     "@types/react-router-dom": "^5.3.3",
+    "gh-pages": "^6.3.0",
     "ionicons": "^7.4.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
