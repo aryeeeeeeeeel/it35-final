@@ -22,7 +22,7 @@ import {
         navigation.push('/it35-final/app','forward','replace');
       }
     const doRegister = ()=> {
-          navigation.push('/it35-lab/register', 'forward','replace');
+          navigation.push('/it35-final/signup', 'forward','replace');
       }
 
     return (
