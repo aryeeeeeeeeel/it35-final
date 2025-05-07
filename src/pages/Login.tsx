@@ -3,6 +3,10 @@ import {
     IonButtons,
       IonContent, 
       IonHeader, 
+      IonInput, 
+      IonInputPasswordToggle, 
+      IonItem, 
+      IonList, 
       IonMenuButton, 
       IonPage, 
       IonTitle, 
@@ -30,6 +34,19 @@ import {
         </IonHeader>
         <IonContent className='ion-padding'>
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <IonList>
+           <IonItem>
+             <IonInput type="email" label="Email" value="">
+             </IonInput>
+             </IonItem>
+             <IonItem>
+             <IonInput type="password" label="Password" value="Chemistry123">
+            <IonInputPasswordToggle slot="end"></IonInputPasswordToggle>
+            </IonInput>
+           </IonItem>
+       </IonList>
+       </div>
+       <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
             <IonButton onClick={() => doLogin()} expand="full">
                 Login
             </IonButton>
