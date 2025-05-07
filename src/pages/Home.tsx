@@ -17,8 +17,9 @@ import {
 } from '@ionic/react';
 
 import { IonReactRouter } from '@ionic/react-router';
-import { bookOutline, search, star } from 'ionicons/icons';
+import { bookOutline} from 'ionicons/icons';
 import { Route, Redirect } from 'react-router';
+
 import Feed from './home-tabs/Feed';
 
 const Home: React.FC = () => {
