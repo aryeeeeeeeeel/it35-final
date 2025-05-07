@@ -118,7 +118,7 @@ import {
           <IonButton onClick={handleOpenVerificationModal} expand="full" color='success' shape='round' style={{ marginTop: '15px' }}>
               Sign up
           </IonButton>
-          <IonButton routerLink="/it35-lab" expand="full" fill="outline" shape='round'>
+          <IonButton routerLink="/it35-final" expand="full" fill="outline" shape='round'>
               Already have an account? Sign in
           </IonButton>
 
