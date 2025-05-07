@@ -17,15 +17,15 @@ import {
 } from '@ionic/react';
 
 import { IonReactRouter } from '@ionic/react-router';
-import { bookOutline} from 'ionicons/icons';
+import { bookOutline, starSharp} from 'ionicons/icons';
 import { Route, Redirect } from 'react-router';
 
-import Feed from './home-tabs/Feed';
+import Feed from './home-tabs/Emergency_Status';
 
 const Home: React.FC = () => {
 
   const tabs = [
-    {name:'Feed', tab:'feed',url: '/it35-final/app/home/feed', icon: bookOutline},
+    {name:'Emergency_Status', tab:'emergency_status',url: '/it35-final/app/home/emergency_status', icon: starSharp},
   ]
   
 return (
@@ -41,9 +41,9 @@ return (
             
           </IonTabBar>
         <IonRouterOutlet>
-          <Route exact path="/it35-final/app/home/feed" render={Feed} />
+          <Route exact path="/it35-final/app/home/emergency_status" component={Feed} />
           <Route exact path="/it35-final/app/home">
-            <Redirect to="/it35-final/app/home/feed" />
+            <Redirect to="/it35-final/app/home/emergency_status" />
           </Route>
         </IonRouterOutlet>
         </IonTabs>
