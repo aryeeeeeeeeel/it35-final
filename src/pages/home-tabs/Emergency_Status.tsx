@@ -11,13 +11,18 @@ import {
   IonRow,
   IonCol,
   IonLoading,
-  IonToast
+  IonToast,
+  IonItem,
+  IonLabel,
+  IonList,
+  IonButtons,
+  IonMenuButton
 } from '@ionic/react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { useIonRouter } from '@ionic/react';
 
-const EmergencyStatusDashboard: React.FC = () => {
+const Emergency_Status: React.FC = () => {
   const router = useIonRouter();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -30,6 +35,7 @@ const EmergencyStatusDashboard: React.FC = () => {
     safe: 0,
     help: 0
   });
+  const [statusData, setStatusData] = useState<any[]>([]);
 
   // Authentication Check
   useEffect(() => {
@@ -50,6 +56,7 @@ const EmergencyStatusDashboard: React.FC = () => {
 
     checkAuth();
     fetchCounts();
+    fetchStatusData();
   }, [router]);
 
   // Fetch counts
@@ -85,6 +92,38 @@ const EmergencyStatusDashboard: React.FC = () => {
     }
   };
 
+  // Fetch status data with user details
+  const fetchStatusData = async () => {
+    try {
+      setLoading(prev => ({ ...prev, fetch: true }));
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('emergency_status')
+        .select(`
+          status,
+          marked_at,
+          users:user_id (
+            name,
+            email,
+            address
+          )
+        `)
+        .eq('date', today)
+        .order('marked_at', { ascending: false });
+
+      if (error) throw error;
+
+      setStatusData(data || []);
+    } catch (error) {
+      console.error('Error fetching status data:', error);
+      setToastMessage('Failed to load user data');
+      setShowToast(true);
+    } finally {
+      setLoading(prev => ({ ...prev, fetch: false }));
+    }
+  };
+
   // Handle status updates
   const handleStatusUpdate = async (status: 'safe' | 'help') => {
     setLoading(prev => ({ ...prev, action: true }));
@@ -111,6 +150,7 @@ const EmergencyStatusDashboard: React.FC = () => {
 
       setToastMessage(`Marked as ${status === 'safe' ? 'safe' : 'needing help'}!`);
       await fetchCounts();
+      await fetchStatusData();
     } catch (error) {
       console.error('Update error:', error);
       setToastMessage('Failed to update status');
@@ -128,10 +168,12 @@ const EmergencyStatusDashboard: React.FC = () => {
     <IonPage>
       <IonHeader>
         <IonToolbar>
+          <IonButtons slot="start">
+            <IonMenuButton />
+          </IonButtons>
           <IonTitle>Emergency Status</IonTitle>
         </IonToolbar>
       </IonHeader>
-
       <IonContent className="ion-padding">
         <IonLoading isOpen={loading.action || loading.fetch} message={loading.action ? "Updating..." : "Loading..."} />
 
@@ -183,6 +225,53 @@ const EmergencyStatusDashboard: React.FC = () => {
           </IonCardContent>
         </IonCard>
 
+        <IonCard>
+          <IonCardContent>
+            <h2 style={{ marginBottom: '15px' }}>User Status Details</h2>
+            <IonList>
+              <IonItem>
+                <IonGrid>
+                  <IonRow style={{ fontWeight: 'bold' }}>
+                    <IonCol size="3">Status</IonCol>
+                    <IonCol size="3">Name</IonCol>
+                    <IonCol size="3">Email</IonCol>
+                    <IonCol size="3">Address</IonCol>
+                  </IonRow>
+                </IonGrid>
+              </IonItem>
+              
+              {statusData.map((item, index) => (
+                <IonItem key={index}>
+                  <IonGrid>
+                    <IonRow>
+                      <IonCol size="3">
+                        <IonLabel color={item.status === 'safe' ? 'success' : 'danger'}>
+                          {item.status === 'safe' ? 'Safe' : 'Help'}
+                        </IonLabel>
+                      </IonCol>
+                      <IonCol size="3">
+                        <IonLabel>{item.users?.name || 'N/A'}</IonLabel>
+                      </IonCol>
+                      <IonCol size="3">
+                        <IonLabel>{item.users?.email || 'N/A'}</IonLabel>
+                      </IonCol>
+                      <IonCol size="3">
+                        <IonLabel>{item.users?.address || 'N/A'}</IonLabel>
+                      </IonCol>
+                    </IonRow>
+                  </IonGrid>
+                </IonItem>
+              ))}
+              
+              {statusData.length === 0 && (
+                <IonItem>
+                  <IonLabel className="ion-text-center">No status data available</IonLabel>
+                </IonItem>
+              )}
+            </IonList>
+          </IonCardContent>
+        </IonCard>
+
         <IonToast
           isOpen={showToast}
           onDidDismiss={() => setShowToast(false)}
@@ -194,4 +283,4 @@ const EmergencyStatusDashboard: React.FC = () => {
   );
 };
 
-export default EmergencyStatusDashboard;
+export default Emergency_Status;
