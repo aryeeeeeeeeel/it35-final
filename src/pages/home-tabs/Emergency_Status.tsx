@@ -1,133 +1,119 @@
 import { 
-  IonButtons,
   IonContent, 
   IonHeader, 
-  IonMenuButton, 
   IonPage, 
   IonTitle, 
   IonToolbar,
   IonButton,
   IonCard,
   IonCardContent,
-  IonItem,
-  IonLabel,
-  IonDatetime,
-  IonToast,
+  IonGrid,
+  IonRow,
+  IonCol,
   IonLoading,
-  IonIcon, 
-  IonGrid, 
-  IonRow, 
-  IonCol, 
-  IonList, 
-  IonAvatar,
-  IonBadge
+  IonToast
 } from '@ionic/react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { useIonRouter } from '@ionic/react';
-import { checkmarkCircle, alertCircle, helpCircle, warning } from 'ionicons/icons';
 
-const Emergency_Status: React.FC = () => {
+const EmergencyStatusDashboard: React.FC = () => {
   const router = useIonRouter();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString());
-  const [isMarked, setIsMarked] = useState(false);
   const [loading, setLoading] = useState({
     auth: true,
-    action: false
+    action: false,
+    fetch: false
   });
-  const [statusRecords, setStatusRecords] = useState<any[]>([]);
+  const [counts, setCounts] = useState({
+    safe: 0,
+    help: 0
+  });
 
   // Authentication Check
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      
-      if (error || !user) {
-        router.push('/it35-final', 'root', 'replace');
-        return;
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        if (error || !user) {
+          router.push('/login', 'root', 'replace');
+          return;
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+      } finally {
+        setLoading(prev => ({ ...prev, auth: false }));
       }
-      
-      // Check existing status for today
-      const today = new Date().toISOString().split('T')[0];
-      const { data } = await supabase
-        .from('emergency_status')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('date', today)
-        .single();
-
-      setIsMarked(!!data);
-      setLoading(prev => ({ ...prev, auth: false }));
     };
 
     checkAuth();
+    fetchCounts();
   }, [router]);
 
-  // Fetch status records
-  const fetchStatusRecords = async () => {
+  // Fetch counts
+  const fetchCounts = async () => {
     try {
-      const dateStr = selectedDate.split('T')[0];
-      const { data, error, status } = await supabase
+      setLoading(prev => ({ ...prev, fetch: true }));
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Get safe count
+      const { count: safeCount } = await supabase
         .from('emergency_status')
-        .select(`
-          id,
-          date,
-          status,
-          marked_at,
-          user_id,
-          profiles:user_id (username, avatar_url)
-        `)
-        .eq('date', dateStr)
-        .order('marked_at', { ascending: false });
-  
-      if (error && status !== 406) { // 406 is when no rows are returned
-        throw error;
-      }
-  
-      setStatusRecords(data || []);
+        .select('*', { count: 'exact', head: true })
+        .eq('date', today)
+        .eq('status', 'safe');
+
+      // Get help count
+      const { count: helpCount } = await supabase
+        .from('emergency_status')
+        .select('*', { count: 'exact', head: true })
+        .eq('date', today)
+        .eq('status', 'help');
+
+      setCounts({
+        safe: safeCount || 0,
+        help: helpCount || 0
+      });
     } catch (error) {
-      console.error('Error fetching status records:', error);
-      setToastMessage('Failed to load status records. Please check your permissions.');
+      console.error('Fetch error:', error);
+      setToastMessage('Failed to load data');
       setShowToast(true);
-      setStatusRecords([]); // Reset to empty array on error
+    } finally {
+      setLoading(prev => ({ ...prev, fetch: false }));
     }
   };
 
-  useEffect(() => {
-    fetchStatusRecords();
-  }, [selectedDate, isMarked]);
-
+  // Handle status updates
   const handleStatusUpdate = async (status: 'safe' | 'help') => {
     setLoading(prev => ({ ...prev, action: true }));
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('Authentication failed');
 
-      const dateStr = selectedDate.split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
 
-      // Upsert status record (update if exists, otherwise insert)
+      // Upsert status
       const { error } = await supabase
         .from('emergency_status')
         .upsert({
           user_id: user.id,
-          date: dateStr,
+          date: today,
           status: status,
           marked_at: new Date().toISOString()
         }, {
-          onConflict: 'user_id,date' // Update if record exists for this user+date
+          onConflict: 'user_id,date'
         });
 
       if (error) throw error;
 
-      setIsMarked(true);
-      setToastMessage(`Successfully marked as ${status === 'safe' ? 'safe' : 'needing help'}!`);
-      fetchStatusRecords(); // Refresh the list
+      setToastMessage(`Marked as ${status === 'safe' ? 'safe' : 'needing help'}!`);
+      await fetchCounts();
     } catch (error) {
-      console.error('Status update error:', error);
-      setToastMessage(error instanceof Error ? error.message : 'Failed to update status');
+      console.error('Update error:', error);
+      setToastMessage('Failed to update status');
     } finally {
       setLoading(prev => ({ ...prev, action: false }));
       setShowToast(true);
@@ -135,137 +121,65 @@ const Emergency_Status: React.FC = () => {
   };
 
   if (loading.auth) {
-    return (
-      <IonPage>
-        <IonContent>
-          <IonLoading isOpen={true} message="Verifying session..." />
-        </IonContent>
-      </IonPage>
-    );
+    return <IonLoading isOpen={true} message="Verifying session..." />;
   }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'safe':
-        return { icon: checkmarkCircle, color: 'success' };
-      case 'help':
-        return { icon: warning, color: 'danger' };
-      default:
-        return { icon: helpCircle, color: 'warning' };
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'safe':
-        return 'Safe';
-      case 'help':
-        return 'Needs Help';
-      default:
-        return 'Unknown';
-    }
-  };
 
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonButtons slot="start">
-            <IonMenuButton />
-          </IonButtons>
           <IonTitle>Emergency Status</IonTitle>
         </IonToolbar>
       </IonHeader>
 
       <IonContent className="ion-padding">
-        <IonLoading isOpen={loading.action} message="Submitting..." />
+        <IonLoading isOpen={loading.action || loading.fetch} message={loading.action ? "Updating..." : "Loading..."} />
 
         <IonCard>
           <IonCardContent>
-            <IonItem>
-              <IonLabel position="stacked">Select Date</IonLabel>
-              <IonDatetime
-                value={selectedDate}
-                onIonChange={e => {
-                  setSelectedDate(e.detail.value as string);
-                  setIsMarked(false);
-                }}
-                presentation="date"
-                max={new Date().toISOString()}
-              />
-            </IonItem>
-
-            <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-              {isMarked ? (
-                <IonButton expand="block" color="medium" disabled>
-                  Status Already Submitted
-                </IonButton>
-              ) : (
-                <>
+            <IonGrid>
+              <IonRow>
+                <IonCol>
                   <IonButton 
                     expand="block" 
                     color="success" 
                     onClick={() => handleStatusUpdate('safe')}
+                    disabled={loading.action}
+                    style={{ marginBottom: '10px', height: '60px' }}
                   >
                     MARK SAFE
                   </IonButton>
+                </IonCol>
+                <IonCol>
                   <IonButton 
                     expand="block" 
                     color="danger" 
                     onClick={() => handleStatusUpdate('help')}
+                    disabled={loading.action}
+                    style={{ marginBottom: '10px', height: '60px' }}
                   >
                     NEED HELP
                   </IonButton>
-                </>
-              )}
-            </div>
+                </IonCol>
+              </IonRow>
+            </IonGrid>
           </IonCardContent>
         </IonCard>
 
         <IonCard>
           <IonCardContent>
-            <IonLabel><h2>Emergency Status Reports</h2></IonLabel>
-            <IonList>
-              {statusRecords.length > 0 ? (
-                <IonGrid>
-                  <IonRow className="ion-text-center ion-align-items-center" style={{ fontWeight: 'bold', padding: '10px 0' }}>
-                    <IonCol size="4">User</IonCol>
-                    <IonCol size="3">Status</IonCol>
-                    <IonCol size="5">Time</IonCol>
-                  </IonRow>
-                  {statusRecords.map((record) => {
-                    const statusInfo = getStatusIcon(record.status);
-                    return (
-                      <IonRow key={record.id} className="ion-text-center ion-align-items-center" style={{ padding: '8px 0', borderBottom: '1px solid #eee' }}>
-                        <IonCol size="4">
-                          <IonItem lines="none" style={{ '--inner-padding-end': '0' }}>
-                            {record.profiles?.avatar_url && (
-                              <IonAvatar slot="start" style={{ width: '30px', height: '30px', marginRight: '10px' }}>
-                                <img src={record.profiles.avatar_url} alt="avatar" />
-                              </IonAvatar>
-                            )}
-                            <IonLabel style={{ fontSize: '0.9rem' }}>{record.profiles?.username || 'Unknown'}</IonLabel>
-                          </IonItem>
-                        </IonCol>
-                        <IonCol size="3">
-                          <IonBadge color={statusInfo.color}>
-                            <IonIcon icon={statusInfo.icon} style={{ marginRight: '5px', fontSize: '0.9rem' }} />
-                            {getStatusText(record.status)}
-                          </IonBadge>
-                        </IonCol>
-                        <IonCol size="5">
-                          {new Date(record.marked_at).toLocaleString()}
-                        </IonCol>
-                      </IonRow>
-                    );
-                  })}
-                </IonGrid>
-              ) : (
-                <IonItem>
-                  <IonLabel className="ion-text-center">No status reports for this date</IonLabel>
-                </IonItem>
-              )}
-            </IonList>
+            <IonGrid>
+              <IonRow>
+                <IonCol style={{ textAlign: 'center' }}>
+                  <h2 style={{ color: '#2dd36f', margin: '0' }}>{counts.safe}</h2>
+                  <p style={{ margin: '0' }}>Safe Users</p>
+                </IonCol>
+                <IonCol style={{ textAlign: 'center' }}>
+                  <h2 style={{ color: '#eb445a', margin: '0' }}>{counts.help}</h2>
+                  <p style={{ margin: '0' }}>Need Help</p>
+                </IonCol>
+              </IonRow>
+            </IonGrid>
           </IonCardContent>
         </IonCard>
 
@@ -273,12 +187,11 @@ const Emergency_Status: React.FC = () => {
           isOpen={showToast}
           onDidDismiss={() => setShowToast(false)}
           message={toastMessage}
-          duration={2000}
-          position="top"
+          duration={3000}
         />
       </IonContent>
     </IonPage>
   );
 };
 
-export default Emergency_Status;
+export default EmergencyStatusDashboard;
